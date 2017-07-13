@@ -1,0 +1,39 @@
+## Name of the node
+-name ntrip_source@127.0.0.1
+
+-setcookie gnss_cookie
+
+## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
+## (Disabled by default..use with caution!)
+##-heart
+-smp true
+
++K true
++A32
+
+## Set the distribution buffer busy limit (dist_buf_busy_limit) in kilobytes.
+## Valid range is 1-2097151. Default is 1024.
++zdbbl 8192
+
+## Set scheduler bind type.
++sbt db
+
+## max process numbers
++P 2097152
+
+## Sets the maximum number of simultaneously existing ports for this system
++Q 1048576
+
+## Increase number of concurrent ports/sockets
+-env ERL_MAX_PORTS 1048576
+
+-env ERTS_MAX_PORTS 1048576
+
+-env ERL_MAX_ETS_TABLES 256000
+
+## Tweak GC to run more often
+-env ERL_FULLSWEEP_AFTER 10000
+
+-mnesia dump_log_write_threshold 10000000
+-mnesia dump_log_time_threshold 10000000
+-mnesia dc_dump_limit 64
