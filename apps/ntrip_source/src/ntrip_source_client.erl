@@ -173,6 +173,14 @@ handle_info(timeout, State) ->
 handle_info({shutdown, Error}, State) ->
   shutdown(Error, State);
 
+handle_info({tcp_error, _Sock, Reason}, State) ->
+  lager:error("tcp_error: ~s~n", [Reason]),
+  {stop, {shutdown, {tcp_error, Reason}}, State};
+
+handle_info({tcp_closed, _Sock}, State) ->
+  lager:error("tcp_closed~n"),
+  {stop, normal, State};
+
 handle_info(_Info, State) ->
   {noreply, State}.
 

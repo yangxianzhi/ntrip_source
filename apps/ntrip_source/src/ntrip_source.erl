@@ -49,6 +49,7 @@ open(Protocol, Port, Options) ->
   {ok, PktOpts} = application:get_env(ntrip_source, packet),
   {ok, CliOpts} = application:get_env(ntrip_source, client),
   MFArgs = {ntrip_source_client_sup, start_child, [[{packet, PktOpts}, {client, CliOpts}]]},
+%%  MFArgs = {ntrip_source_client, start_link, [[{packet, PktOpts}, {client, CliOpts}]]},
   esockd:open(Protocol, Port, merge(?TCP_SOCKOPTS, Options) , MFArgs).
 
 is_running(Node) ->

@@ -1,6 +1,6 @@
 ﻿ntrip_source
 =====
-模拟数据远
+模拟数据源
 
 An OTP application
 
