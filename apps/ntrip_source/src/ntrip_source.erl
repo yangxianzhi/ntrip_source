@@ -37,19 +37,28 @@ start() ->
 open(Listeners) when is_list(Listeners) ->
   [open(Listener) || Listener <- Listeners];
 
-%% open tcp port
-open({tcp, Port, Options}) ->
-  open(tcp, Port, Options);
+%%%% open tcp port
+%%open({tcp, Port, Options}) ->
+%%  open(tcp, Port, Options);
+%%
+%%%% open SSL port
+%%open({ssl, Port, Options}) ->
+%%  open(ssl, Port, Options);
 
-%% open SSL port
-open({ssl, Port, Options}) ->
-  open(ssl, Port, Options).
+open({Protocol, Port, Options}) ->
+  open(Protocol, Port, Options).
+
+open(tsung, Port, Options) ->
+  {ok, PktOpts} = application:get_env(ntrip_source, packet),
+  {ok, CliOpts} = application:get_env(ntrip_source, client),
+  MFArgs = {ntrip_source_tsung_client, start_link, [[{packet, PktOpts}, {client, CliOpts}]]},
+  esockd:open(tsung, Port, merge(?TCP_SOCKOPTS, Options) , MFArgs);
 
 open(Protocol, Port, Options) ->
   {ok, PktOpts} = application:get_env(ntrip_source, packet),
   {ok, CliOpts} = application:get_env(ntrip_source, client),
-  MFArgs = {ntrip_source_client_sup, start_child, [[{packet, PktOpts}, {client, CliOpts}]]},
 %%  MFArgs = {ntrip_source_client, start_link, [[{packet, PktOpts}, {client, CliOpts}]]},
+  MFArgs = {ntrip_source_client_sup, start_child, [[{packet, PktOpts}, {client, CliOpts}]]},
   esockd:open(Protocol, Port, merge(?TCP_SOCKOPTS, Options) , MFArgs).
 
 is_running(Node) ->

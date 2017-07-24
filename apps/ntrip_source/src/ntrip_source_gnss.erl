@@ -150,7 +150,7 @@ handle_cast(_Request, State) ->
   {stop, Reason :: term(), NewState :: #state{}}).
 handle_info(connect, State = #state{ip = Ip, port = Port}) ->
   Socket =
-    case et_ntrip_server_gnss_socket:connect(self(), tcp, Ip, Port, [], []) of
+    case ntrip_source_gnss_socket:connect(self(), tcp, Ip, Port, [], []) of
       {ok, Socket1, _} ->
         lager:info("Socket connect OK: ~p:~p~n",[Ip, Port]),
         Socket1;

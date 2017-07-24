@@ -67,7 +67,7 @@ init([]) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-%%终止一个进程，ID=PID/ProcName%
+%%终止一个进程，ID=ProcName%
 terminate_child(Id) ->
   supervisor:terminate_child(ntrip_source_client_sup, Id),
   supervisor:delete_child(ntrip_source_client_sup, Id).
@@ -108,4 +108,4 @@ worker_spec(Connection, Opts) ->
   [A,_,B] = esockd_net:format(PeerName),
   TimeStamp = erlang:integer_to_list(os:system_time(milli_seconds)),
   Name = list_to_atom(A ++ ":" ++ B ++ ":" ++ TimeStamp),
-  {Name, {ntrip_source_client, start_link, [Connection, Opts]}, permanent, 10000, worker, [ntrip_source_client]}.
+  {Name, {ntrip_source_client, start_link, [Connection, Opts, Name]}, temporary , 10000, worker, [ntrip_source_client]}.

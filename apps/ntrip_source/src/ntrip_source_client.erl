@@ -9,11 +9,12 @@
 -module(ntrip_source_client).
 -author("ilink").
 -include("ntrip_source.hrl").
+-include("esockd.hrl").
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/2]).
+-export([start_link/3]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -31,7 +32,8 @@
   conn_name,
   conn_state,
   await_recv,
-  sendfun}).
+  sendfun,
+  process_name}).
 
 %%%===================================================================
 %%% API
@@ -43,11 +45,10 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(start_link(Connection:: term(), TcpEnv:: term()) ->
+-spec(start_link(Connection:: term(), TcpEnv:: term(), Name:: term()) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link(Connection, TcpEnv) ->
-  {ok, proc_lib:spawn_link(?MODULE, init, [[Connection, TcpEnv]])}.
-%%  gen_server:start_link({local, ?SERVER}, ?MODULE, [Connection, TcpEnv], []).
+start_link(Connection, TcpEnv, Name) ->
+  {ok, proc_lib:spawn_link(?MODULE, init, [[Connection, TcpEnv, Name]])}.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -67,7 +68,7 @@ start_link(Connection, TcpEnv) ->
 -spec(init(Args :: term()) ->
   {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
-init([OriginConn, TcpEnv]) ->
+init([OriginConn, TcpEnv, Name]) ->
   {ok, Connection} = OriginConn:wait(),
   {_, _, PeerName} =
     case Connection:peername() of
@@ -100,7 +101,8 @@ init([OriginConn, TcpEnv]) ->
     await_recv   = false,
     conn_state   = running,
     peer_name    = PeerName,
-    sendfun      = SendFun
+    sendfun      = SendFun,
+    process_name = Name
   }),
 
   ClientOpts = proplists:get_value(client, TcpEnv),
@@ -160,7 +162,10 @@ handle_info(send_data, State = #state{sendfun = SendFun}) ->
   Data =
     case mnesia:dirty_read(gnss_data, 1) of
       [] ->
-        <<"1111111111111222222222222233333333333333333334444444444444444444444444aaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeefffffffffffffffffffffffggggggggggggggggggg">>;
+        Timestamp = os:system_time(milli_seconds),
+        TimestampBin = <<6:16/big,Timestamp:48/big>>,
+        Msg = <<"1111111111111222222222222233333333333333333334444444444444444444444444aaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeefffffffffffffffffffffffggggggggggggggggggg\r\n">>,
+        <<TimestampBin/binary, Msg/binary>>;
       [D] ->
         D
     end,
@@ -168,17 +173,40 @@ handle_info(send_data, State = #state{sendfun = SendFun}) ->
   erlang:send_after(?TIMER, self(), send_data),
   {noreply, State};
 
+handle_info({send_data,Data}, State = #state{sendfun = SendFun}) ->
+  SendFun(Data),
+  {noreply, State};
+
+handle_info({inet_async, Sock, _Ref, {ok, Data}}, State = #state{connection = ?ESOCK(Sock) = Conn}) ->
+  {ok, PeerName} = Conn:peername(),
+  lager:debug("~s - ~p~n", [esockd_net:format(peername, PeerName), Data]),
+%%  Conn:async_send(Data),
+  Conn:async_recv(0, infinity),
+  {noreply, State};
+
+handle_info({inet_async, Sock, _Ref, {error, Reason}}, State = #state{connection = ?ESOCK(Sock)}) ->
+  lager:debug("inet_async shutdown for ~p", [Reason]),
+  shutdown(Reason, State);
+
+handle_info({inet_reply, Sock ,ok}, State = #state{connection = ?ESOCK(Sock)}) ->
+  {noreply, State};
+
+handle_info({inet_reply, Sock, {error, Reason}}, State = #state{connection = ?ESOCK(Sock)}) ->
+  lager:debug("inet_reply shutdown for ~p", [Reason]),
+  shutdown(Reason, State);
+
 handle_info(timeout, State) ->
   stop({shutdown, timeout}, State);
+
 handle_info({shutdown, Error}, State) ->
   shutdown(Error, State);
 
 handle_info({tcp_error, _Sock, Reason}, State) ->
-  lager:error("tcp_error: ~s~n", [Reason]),
+  lager:error("tcp_error: ~s", [Reason]),
   {stop, {shutdown, {tcp_error, Reason}}, State};
 
 handle_info({tcp_closed, _Sock}, State) ->
-  lager:error("tcp_closed~n"),
+  lager:error("tcp_closed"),
   {stop, normal, State};
 
 handle_info(_Info, State) ->
@@ -228,5 +256,7 @@ run_socket(State = #state{connection = Connection}) ->
 shutdown(Reason, State) ->
   stop({shutdown, Reason}, State).
 
-stop(Reason, State) ->
+stop(Reason, State = #state{process_name = Name}) ->
+  lager:debug("terminate_child shutdown for ~p", [Name]),
+  ntrip_source_client_sup:terminate_child(Name),
   {stop, Reason, State}.
