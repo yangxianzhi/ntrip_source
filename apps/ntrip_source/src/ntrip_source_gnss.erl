@@ -83,6 +83,7 @@ start_link(Opts) ->
 init([Opts]) ->
   Ip = proplists:get_value(ip, Opts),
   Port = proplists:get_value(port, Opts),
+  erlang:send_after(timer:seconds(2), self(), connect),
   {ok, #state{ip = Ip, port = Port}}.
 
 %%--------------------------------------------------------------------

@@ -46,8 +46,7 @@ stop(_State) ->
 start_servers(Sup) ->
     {ok, DataSource} = application:get_env(ntrip_source, data_source),
     Servers = [
-        {"ntrip source gnss data source", ntrip_source_gnss, DataSource},
-        {"ntrip source client supervisor", {supervisor, ntrip_source_client_sup}}
+        {"ntrip source gnss data source", ntrip_source_gnss, DataSource}
     ],
     [start_server(Sup, Server) || Server <- Servers],
     ok.

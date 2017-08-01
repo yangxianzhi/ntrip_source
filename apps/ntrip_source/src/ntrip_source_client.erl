@@ -159,15 +159,15 @@ handle_cast(_Request, State) ->
   {noreply, NewState :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #state{}}).
 handle_info(send_data, State = #state{sendfun = SendFun}) ->
+  Timestamp = os:system_time(milli_seconds),
+  TimestampBin = <<6:16/big,Timestamp:48/big>>,
   Data =
     case mnesia:dirty_read(gnss_data, 1) of
       [] ->
-        Timestamp = os:system_time(milli_seconds),
-        TimestampBin = <<6:16/big,Timestamp:48/big>>,
         Msg = <<"1111111111111222222222222233333333333333333334444444444444444444444444aaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeefffffffffffffffffffffffggggggggggggggggggg\r\n">>,
         <<TimestampBin/binary, Msg/binary>>;
-      [D] ->
-        D
+      [#gnss_data{data = D}] ->
+        <<TimestampBin/binary, D/binary>>
     end,
   SendFun(Data),
   erlang:send_after(?TIMER, self(), send_data),
