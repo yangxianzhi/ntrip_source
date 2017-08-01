@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/3]).
+-export([start_link/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -32,8 +32,7 @@
   conn_name,
   conn_state,
   await_recv,
-  sendfun,
-  process_name}).
+  sendfun}).
 
 %%%===================================================================
 %%% API
@@ -45,10 +44,10 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(start_link(Connection:: term(), TcpEnv:: term(), Name:: term()) ->
+-spec(start_link(Connection:: term(), TcpEnv:: term()) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link(Connection, TcpEnv, Name) ->
-  {ok, proc_lib:spawn_link(?MODULE, init, [[Connection, TcpEnv, Name]])}.
+start_link(Connection, TcpEnv) ->
+  {ok, proc_lib:spawn_link(?MODULE, init, [[Connection, TcpEnv]])}.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -68,7 +67,7 @@ start_link(Connection, TcpEnv, Name) ->
 -spec(init(Args :: term()) ->
   {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
-init([OriginConn, TcpEnv, Name]) ->
+init([OriginConn, TcpEnv]) ->
   {ok, Connection} = OriginConn:wait(),
   {_, _, PeerName} =
     case Connection:peername() of
@@ -101,8 +100,7 @@ init([OriginConn, TcpEnv, Name]) ->
     await_recv   = false,
     conn_state   = running,
     peer_name    = PeerName,
-    sendfun      = SendFun,
-    process_name = Name
+    sendfun      = SendFun
   }),
 
   ClientOpts = proplists:get_value(client, TcpEnv),
@@ -256,7 +254,5 @@ run_socket(State = #state{connection = Connection}) ->
 shutdown(Reason, State) ->
   stop({shutdown, Reason}, State).
 
-stop(Reason, State = #state{process_name = Name}) ->
-  lager:debug("terminate_child shutdown for ~p", [Name]),
-  ntrip_source_client_sup:terminate_child(Name),
+stop(Reason, State) ->
   {stop, Reason, State}.
