@@ -14,11 +14,14 @@
 
 -define(TCP_SOCKOPTS, [
   binary,
-  {packet,    raw},
   {reuseaddr, true},
-  {reuseport, true},
-  {backlog,   512},
-  {nodelay,   true}
+  {backlog, 512},
+  {nodelay, true},
+  {delay_send, true},
+  {high_watermark, 64 * 1024},
+  {send_timeout, 30000},
+  {send_timeout_close, true},
+  {keepalive, true}
 ]).
 
 -type listener() :: {atom(), inet:port_number(), [esockd:option()]}.
